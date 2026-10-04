@@ -1,0 +1,12 @@
+# Weekly pull requests for outdated pinned dependencies and GitHub Actions.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /services/pipeline
+    schedule: {interval: weekly}
+  - package-ecosystem: pip
+    directory: /services/api
+    schedule: {interval: weekly}
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: {interval: weekly}
