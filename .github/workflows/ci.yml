@@ -82,19 +82,19 @@ jobs:
           def post(path, body):
               req = urllib.request.Request(base + path, json.dumps(body).encode(), {"content-type": "application/json"})
               return json.load(urllib.request.urlopen(req))
-          # schema and behaviour on several samples, not one lucky digit (quick model ~94% accurate)
-          correct = 0
-          for seed in range(10):
+          # schema and behaviour on 50 test digits, not one lucky digit (the quick model is ~94% accurate)
+          correct, n = 0, 50
+          for seed in range(n):
               s = get(f"/samples?kind=clean&seed={seed}")
               p = post("/predict", {"pixels": s["pixels"], "source": "ci"})
               assert set(p) >= {"raw", "pca", "unusual", "map_positions", "model_versions"}, p.keys()
               correct += p["pca"]["digit"] == s["true_label"]
-          assert correct >= 8, f"only {correct}/10 clean samples classified correctly"
+          assert correct >= 42, f"only {correct}/{n} clean samples classified correctly"
           noise = get("/samples?kind=noise&seed=1")
           assert post("/predict", {"pixels": noise["pixels"], "source": "ci"})["unusual"]["is_unusual"]
           c = post("/compress", {"pixels": s["pixels"], "n_components": 154})
           assert c["variance_kept"] > 0.94 and len(c["reconstruction"]) == 784, c
-          print(f"smoke test ok: {correct}/10 correct, noise flagged, compress ok")
+          print(f"smoke test ok: {correct}/{n} correct, noise flagged, compress ok")
           PY
       - name: Logs on failure
         if: failure()
