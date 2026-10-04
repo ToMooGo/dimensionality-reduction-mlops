@@ -2,7 +2,8 @@
 FROM python:3.12-slim
 
 ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 MLFLOW_DISABLE_AGENT_HINT=1
-RUN pip install mlflow==3.16.1 psycopg2-binary==2.9.13 && mkdir -p /mlartifacts
+# SQLAlchemy 2.1 maps postgresql:// to the psycopg (v3) driver, the same one the API and pipeline use
+RUN pip install mlflow==3.16.1 "psycopg[binary]==3.3.6" && mkdir -p /mlartifacts
 
 EXPOSE 5000
 CMD ["sh", "-c", "mlflow server --host 0.0.0.0 --port 5000 --workers 2 \
