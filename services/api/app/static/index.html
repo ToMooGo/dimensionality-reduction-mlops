@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PCA Lab - Dimensionality Reduction MLOps</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M3 19 L21 5" /><path d="M8 7 L16 17" class="minor"/><circle cx="6" cy="17" r="1.6"/><circle cx="10" cy="13" r="1.6"/><circle cx="14.5" cy="10" r="1.6"/><circle cx="18" cy="7" r="1.6"/></svg>
+      </span>
+      <div>
+        <h1>PCA Lab</h1>
+        <p class="sub">Compress, classify and map handwritten digits with dimensionality reduction</p>
+      </div>
+    </div>
+    <div class="status" id="status" title="Model service status">
+      <span class="dot"></span><span id="status-text">connecting...</span>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" class="tab active" data-tab="explore" aria-selected="true">Explore a digit</button>
+    <button role="tab" class="tab" data-tab="maps" aria-selected="false">2D maps</button>
+    <button role="tab" class="tab" data-tab="monitor" aria-selected="false">Monitor</button>
+    <a class="tab link" href="/docs" target="_blank" rel="noopener">API docs &#8599;</a>
+  </nav>
+
+  <main>
+    <!-- ======================= EXPLORE ======================= -->
+    <section id="tab-explore" class="panel active" role="tabpanel">
+      <div class="grid explore">
+        <div class="card input-card">
+          <h2>1 &middot; Draw a digit or pick a test image</h2>
+          <p class="hint">Your drawing is cropped, scaled into a 20&times;20 box and centred on a 28&times;28 grid, the MNIST format.</p>
+          <div class="draw-row">
+            <div class="pad-wrap"><canvas id="pad" width="280" height="280" aria-label="Drawing pad" class="empty-pad"></canvas><span class="pad-hint">draw a digit here</span></div>
+            <div class="preview-col">
+              <span class="mini-label">model input (28&times;28)</span>
+              <canvas id="preview" width="28" height="28" class="pixelated big"></canvas>
+              <button id="clear" class="btn ghost">Clear</button>
+              <button id="use-draw" class="btn primary">Use drawing</button>
+            </div>
+          </div>
+          <div class="samples">
+            <span class="mini-label">or send a held-out test digit (&#9888; = deliberately corrupted copy):</span>
+            <div class="chips">
+              <button class="chip" data-kind="clean">Clean digit</button>
+              <button class="chip warn" data-kind="noise">Random noise</button>
+              <button class="chip warn" data-kind="inverted">Inverted</button>
+              <button class="chip warn" data-kind="shuffled">Shuffled pixels</button>
+              <button class="chip warn" data-kind="rotated">Upside down</button>
+              <button class="chip warn" data-kind="mirrored">Mirrored</button>
+              <button class="chip warn" data-kind="shifted">Shifted 4 px</button>
+              <button class="chip warn" data-kind="gaussian">Gaussian noise</button>
+              <button class="chip warn" data-kind="dimmed">Dimmed</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>2 &middot; Compress and decompress</h2>
+          <p class="hint">Keep only the first <b>d</b> principal components, then rebuild the 784 pixels (<code>inverse_transform</code>).</p>
+          <div id="compress-empty" class="empty">Pick an input first.</div>
+          <div id="compress" hidden>
+            <div class="pair">
+              <figure><canvas id="c-orig" width="28" height="28" class="pixelated img"></canvas><figcaption>input &middot; 784 values</figcaption></figure>
+              <figure><canvas id="c-rec" width="28" height="28" class="pixelated img"></canvas><figcaption id="c-rec-cap">rebuilt</figcaption></figure>
+            </div>
+            <label class="slider-row" for="d-slider">
+              <span>components d = <b id="d-value">154</b></span>
+              <input id="d-slider" type="range" min="1" max="784" value="154">
+            </label>
+            <div class="chips" id="d-marks"></div>
+            <dl class="stats">
+              <div><dt>training variance kept</dt><dd id="s-var">-</dd></div>
+              <div><dt>features kept</dt><dd id="s-feat">-</dd></div>
+              <div><dt>typical pixel error</dt><dd id="s-rmse">-</dd></div>
+              <div><dt>storage per image</dt><dd id="s-bytes">-</dd></div>
+            </dl>
+          </div>
+        </div>
+
+        <div class="card result-card">
+          <h2>3 &middot; Classify and check the input</h2>
+          <div id="result-empty" class="empty">Pick an input to see both classifiers and the unusual-input check.</div>
+          <div id="result" hidden>
+            <div id="verdict" class="verdict"></div>
+            <div class="models">
+              <div class="model">
+                <div class="model-head">
+                  <span class="tag">784 raw pixels</span>
+                  <span class="model-name">SVM (RBF)</span>
+                </div>
+                <div class="pred"><span class="digit" id="raw-digit">-</span><span class="conf" id="raw-meta"></span></div>
+                <div class="bars" id="raw-bars"></div>
+              </div>
+              <div class="model">
+                <div class="model-head">
+                  <span class="tag alt" id="pca-tag">154 PCA features</span>
+                  <span class="model-name">PCA &rarr; SVM (RBF)</span>
+                </div>
+                <div class="pred"><span class="digit" id="pca-digit">-</span><span class="conf" id="pca-meta"></span></div>
+                <div class="bars alt" id="pca-bars"></div>
+              </div>
+            </div>
+            <p class="agree" id="agree"></p>
+            <p class="meta" id="meta"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= MAPS ======================= -->
+    <section id="tab-maps" class="panel" role="tabpanel" hidden>
+      <div class="card">
+        <div class="row-between">
+          <div>
+            <h2>MNIST digits in two dimensions</h2>
+            <p class="hint" id="maps-hint">Each dot is a training digit, coloured and labelled by its true class. Hover a dot to see the image. Your latest input appears as a ring on maps whose method can place new points.</p>
+          </div>
+          <div class="seg" id="method-seg" role="group" aria-label="Map method"></div>
+        </div>
+        <div class="map-wrap">
+          <canvas id="map" width="760" height="560" aria-label="2D map of MNIST digits"></canvas>
+          <div id="map-tip" class="map-tip" hidden><canvas id="tip-img" width="28" height="28" class="pixelated"></canvas><span id="tip-text"></span></div>
+          <aside class="map-side">
+            <div class="kpi small"><span class="kpi-label">kNN accuracy in 2D</span><span class="kpi-value" id="m-knn">-</span><span class="kpi-sub">5-NN, 5-fold CV: how well the digits separate</span></div>
+            <div class="kpi small"><span class="kpi-label">fit time</span><span class="kpi-value" id="m-time">-</span><span class="kpi-sub" id="m-n"></span></div>
+            <div class="kpi small"><span class="kpi-label">your input</span><span class="kpi-value" id="m-you">-</span><span class="kpi-sub" id="m-you-sub">pick an input on the first tab</span></div>
+            <div class="legend" id="map-legend" aria-label="digit colours"></div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= MONITOR ======================= -->
+    <section id="tab-monitor" class="panel" role="tabpanel" hidden>
+      <div class="row-between">
+        <h2 class="section-title">Live monitoring <span class="muted" id="mon-window"></span></h2>
+        <button id="refresh-mon" class="btn ghost">Refresh</button>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><span class="kpi-label">Predictions</span><span class="kpi-value" id="k-n">-</span></div>
+        <div class="kpi"><span class="kpi-label">Unusual-input rate (all requests)</span><span class="kpi-value" id="k-unusual">-</span><span class="kpi-sub" id="k-unusual-sub"></span></div>
+        <div class="kpi"><span class="kpi-label">Classifiers agree</span><span class="kpi-value" id="k-agree">-</span><span class="kpi-sub">raw pixels vs PCA features</span></div>
+        <div class="kpi"><span class="kpi-label">Mean SVM latency</span><span class="kpi-value" id="k-lat">-</span><span class="kpi-sub" id="k-lat-sub">raw / PCA</span></div>
+      </div>
+      <p class="hint">Sources starting with <code>sample-</code> are the demo buttons on the first tab, several of them deliberately corrupted; the scheduled drift check ignores them and watches real traffic only.</p>
+      <div class="grid two mon-grid">
+        <div class="card">
+          <h3>Predicted digits (PCA classifier)</h3>
+          <div id="class-chart" class="colchart" role="img" aria-label="Predicted digit counts"></div>
+        </div>
+        <div class="card">
+          <h3>Requests by input source</h3>
+          <table class="table" id="source-table"><thead><tr><th>source</th><th class="num">requests</th><th class="num">flagged</th><th class="num">rate</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Most recent predictions</h3>
+        <div id="recent" class="recent"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    Built by Xaysomvang (Tom) Thammavong &middot; methods from G&eacute;ron, <em>Hands-On Machine Learning</em>, Ch. 8 &middot;
+    <a href="https://github.com/ToMooGo/dimensionality-reduction-mlops" target="_blank" rel="noopener">source on GitHub</a> &middot;
+    <a href="https://www.linkedin.com/in/xaysomvang-thammavong-63189a1b9/" target="_blank" rel="noopener">LinkedIn</a>
+  </footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>
