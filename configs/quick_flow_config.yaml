@@ -1,0 +1,33 @@
+# Fast variant (a few minutes) for CI, demos and the integration test: a stratified subset of MNIST.
+extends: full_flow_config.yaml
+
+data:
+  n_train: 10000
+  n_test: 2000
+
+part_b:
+  repeats: 1
+  sample_sizes: [2500, 5000, 10000]
+
+part_c:
+  gammas: {start: 0.03, stop: 0.05, num: 5}
+
+part_d:
+  n_samples: 1000
+  n_atlas: 600
+
+part_e:
+  rf_n_estimators: 30
+  softmax_max_iter: 300
+  svm_train_size: 3000
+  timing_repeats: 1
+
+part_f:
+  calibration_size: 2500
+  variance_sweep: [0.90, 0.95]
+
+eval:
+  gates:
+    classifier_min_accuracy: 0.90
+    classifier_pca_max_drop_pp: 2.0
+    detector_max_false_alarm_pct: 8.0

@@ -1,0 +1,101 @@
+# ---------------------------------------------------------------------------
+#  One config, one command:  python run_flow.py --config configs/full_flow_config.yaml
+#  train  ->  evaluate (quality gates, champion vs challenger)  ->  deploy
+#  ${VAR:default} values are read from the environment (set in docker-compose.yml).
+# ---------------------------------------------------------------------------
+flow: full            # full | train | eval | deploy | monitor
+seed: 42              # every random_state and subsample
+
+data:
+  cache_dir: ${MNIST_CACHE:data}   # mnist_784 is downloaded once and cached here
+  n_train: null       # null = the book's split: first 60,000 images train, last 10,000 test
+  n_test: null
+
+mlflow:
+  tracking_uri: ${MLFLOW_TRACKING_URI:sqlite:///mlflow.db}
+  experiment: dimensionality-reduction-mlops
+
+database:             # predictions logged by the API
+  url: ${DATABASE_URL:sqlite:///app.db}
+
+reports:
+  dir: reports
+  figures_dir: reports/figures
+
+# --- A: PCA for compression (Ch. 8, pp. 225-227) ----------------------------
+part_a:
+  target_variance: 0.95
+  variance_targets: [0.50, 0.80, 0.90, 0.95, 0.99]
+
+# --- B: Randomized PCA, Incremental PCA, memmap (pp. 227-228) --------------
+part_b:
+  n_components: 154          # the book's number of components
+  n_batches: 100             # the book's 100 mini-batches
+  repeats: 3                 # timings are medians; slow solvers (> 30 s) run once
+  single_run_above_s: 30
+  sample_sizes: [5000, 10000, 20000, 40000, 60000]
+  memmap_dir: null           # temporary directory for the on-disk copy (default: system temp)
+
+# --- C: Kernel PCA and manifold learning on the Swiss roll (pp. 228-235) ---
+part_c:
+  n_samples: 1000
+  noise: 0.2
+  threshold: 6.9             # class = position along the roll t > 6.9
+  test_size: 0.25
+  kernels: [rbf, sigmoid]
+  gammas: {start: 0.03, stop: 0.05, num: 10}   # 2 kernels x 10 gammas = 20 settings
+  cv: 3
+  n_neighbors: 10            # LLE and Isomap
+  rbf_gamma: 0.04            # Kernel PCA in the method comparison
+
+# --- D: MNIST in 2D (exercise 10) ------------------------------------------
+part_d:
+  n_samples: 5000            # stratified sample of training digits
+  n_atlas: 2000              # points shown in the web UI's maps
+  n_api_samples: 500         # held-out test digits shipped with the atlas for the UI's sample buttons
+  pca_variance: 0.95         # PCA before the nonlinear methods (exercise 8)
+  perplexity: 30             # t-SNE
+  n_neighbors: 10            # LLE and Isomap
+  kpca_gamma: null           # null = scikit-learn's default 1 / n_features
+  knn_neighbors: 5
+  cv: 5
+
+# --- E: classification with and without PCA (exercise 9) ------------------
+part_e:
+  pca_variance: 0.95
+  models: [softmax, random_forest, svm]
+  serve: svm                 # the pair registered and served by the API
+  rf_n_estimators: 100
+  softmax_max_iter: 1000
+  svm_C: 1.0
+  svm_train_size: 20000      # kernel SVMs scale ~quadratically; 20,000 random training images
+  svm_same_gamma_ablation: true   # also run the PCA SVM with the raw model's RBF bandwidth
+  timing_repeats: 3          # timings are medians of 3 runs ...
+  single_run_above_s: 60     # ... except fits slower than this, which run once
+
+# --- F: unusual-input detector (Ch. 8 reconstruction error + Ch. 9 threshold)
+part_f:
+  variance: 0.95
+  flag_rate: 0.04            # the book's 4th-percentile rule: about 4% of normal digits flagged
+  calibration_size: 10000    # held-out training images that set the threshold
+  threshold_sweep: [1, 2, 4, 6, 8, 10]
+  variance_sweep: [0.80, 0.90, 0.95, 0.99]
+
+# --- Evaluation: a candidate is only deployed if it passes every gate --------
+eval:
+  gates:
+    compressor_max_components_95: 200
+    compressor_min_test_explained_variance_95: 0.94
+    classifier_min_accuracy: 0.95
+    classifier_pca_max_drop_pp: 1.0          # PCA model at most 1 pp below the raw-pixel model
+    detector_max_false_alarm_pct: 6.0
+    detector_min_detection_pct: {noise: 95, inverted: 95, shuffled: 95}
+    atlas_min_projectable: 3                 # PCA, Kernel PCA and LLE can place new digits
+  champion_tolerance_pp: 0.5                 # challenger may not be > 0.5 pp worse than champion
+
+# --- Deployment -------------------------------------------------------------
+deploy:
+  alias: champion
+  api_url: ${API_URL:http://localhost:8000}
+  require_api: ${REQUIRE_API:false}   # fail the flow if the API cannot be reloaded
+  reload_retries: 10
