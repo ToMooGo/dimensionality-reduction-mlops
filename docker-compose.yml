@@ -33,7 +33,7 @@ services:
   mlflow:
     build: { context: ., dockerfile: services/mlflow/Dockerfile }
     environment:
-      MLFLOW_BACKEND_STORE_URI: postgresql://${POSTGRES_USER:-mlops}:${POSTGRES_PASSWORD:-mlops}@postgres:5432/mlflow
+      MLFLOW_BACKEND_STORE_URI: postgresql+psycopg://${POSTGRES_USER:-mlops}:${POSTGRES_PASSWORD:-mlops}@postgres:5432/mlflow
     volumes:
       - mlartifacts:/mlartifacts
     ports:
