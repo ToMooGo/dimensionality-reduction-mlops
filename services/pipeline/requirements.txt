@@ -7,6 +7,6 @@ matplotlib==3.11.2
 pyyaml==6.0.3
 mlflow==3.16.1
 prefect==3.8.7
-sqlalchemy==2.1.1
+sqlalchemy==2.1.4
 psycopg[binary]==3.3.6
 httpx==0.28.1
