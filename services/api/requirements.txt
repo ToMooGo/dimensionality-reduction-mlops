@@ -6,6 +6,6 @@ pandas==3.0.6
 scikit-learn==1.9.1
 skops==0.16.0
 mlflow-skinny==3.16.1
-sqlalchemy==2.1.1
+sqlalchemy==2.1.4
 psycopg[binary]==3.3.6
 pyyaml==6.0.3
