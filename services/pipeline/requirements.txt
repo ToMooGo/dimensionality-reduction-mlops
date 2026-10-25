@@ -6,7 +6,7 @@ skops==0.16.0
 matplotlib==3.11.2
 pyyaml==6.0.3
 mlflow==3.16.1
-prefect==3.8.7
+prefect==3.9.0
 sqlalchemy==2.1.1
 psycopg[binary]==3.3.6
 httpx==0.28.1
