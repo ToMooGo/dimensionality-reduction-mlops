@@ -1,5 +1,5 @@
 # Serving image (pinned; scikit-learn / skops must match the pipeline that trained the models)
-fastapi==0.142.2
+fastapi==0.159.1
 uvicorn[standard]==0.54.0
 numpy==2.5.3
 pandas==3.0.6
